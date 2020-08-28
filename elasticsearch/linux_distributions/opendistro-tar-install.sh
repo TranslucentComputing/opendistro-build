@@ -13,13 +13,15 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-ES_HOME=`pwd`
+ES_HOME=`dirname $(realpath $0)`; cd $ES_HOME
+ES_KNN_LIB_DIR=$ES_HOME/plugins/opendistro-knn/knn-lib
 ##Security Plugin
 bash $ES_HOME/plugins/opendistro_security/tools/install_demo_configuration.sh -y -i -s
 
 ##Perf Plugin
 chmod 755 $ES_HOME/plugins/opendistro_performance_analyzer/pa_bin/performance-analyzer-agent
 chmod -R 755 /dev/shm
+chmod 755 $ES_HOME/bin/performance-analyzer-agent-cli
 echo "done security"
 PA_AGENT_JAVA_OPTS="-Dlog4j.configurationFile=$ES_HOME/plugins/opendistro_performance_analyzer/pa_config/log4j2.xml \
               -Xms64M -Xmx64M -XX:+UseSerialGC -XX:CICompilerCount=1 -XX:-TieredCompilation -XX:InitialCodeCacheSize=4096 \
@@ -39,17 +41,33 @@ if ! grep -q '## OpenDistro Performance Analyzer' $ES_HOME/config/jvm.options; t
 fi
 echo "done plugins"
 
-#Move k-NN library in the /usr/lib
-echo "Fetching kNN library"
-FILE=/usr/lib/libKNNIndexV1_7_3_6.so
-if sudo test -f "$FILE"; then
-    echo "FILE EXISTS: removing $FILE"
-    sudo rm $FILE
+##Check KNN lib existence in ES TAR distribution
+echo "Checking kNN library"
+FILE=`ls $ES_KNN_LIB_DIR/libKNNIndex*.so`
+if test -f "$FILE"; then
+    echo "FILE EXISTS $FILE"
+else
+    echo "TEST FAILED OR FILE NOT EXIST $FILE"
 fi
-wget https://d3g5vo6xdbdb9a.cloudfront.net/downloads/k-NN-lib/libKNNIndexV1_7_3_6.zip \
-&& unzip libKNNIndexV1_7_3_6.zip \
-&& sudo mv libKNNIndexV1_7_3_6.so /usr/lib \
-&& rm libKNNIndexV1_7_3_6.zip
+
+##Set KNN Dylib Path for macOS and *nix systems
+if echo "$OSTYPE" | grep -qi "darwin"; then
+    if echo "$JAVA_LIBRARY_PATH" | grep -q "$ES_KNN_LIB_DIR"; then
+        echo "KNN lib path has been set"
+    else
+        export JAVA_LIBRARY_PATH=$JAVA_LIBRARY_PATH:$ES_KNN_LIB_DIR
+        echo "KNN lib path not found, set new path"
+        echo $JAVA_LIBRARY_PATH
+    fi
+else
+    if echo "$LD_LIBRARY_PATH" | grep -q "$ES_KNN_LIB_DIR"; then
+        echo "KNN lib path has been set"
+    else
+        export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ES_KNN_LIB_DIR
+        echo "KNN lib path not found, set new path"
+        echo $LD_LIBRARY_PATH
+    fi
+fi
 
 ##Start Elastic Search
 bash $ES_HOME/bin/elasticsearch "$@"
