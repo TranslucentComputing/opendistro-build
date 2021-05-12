@@ -27,6 +27,13 @@ opendistro_security.multitenancy.enabled: true
 opendistro_security.multitenancy.tenants.preferred: ["Private", "Global"]
 opendistro_security.readonly_mode.roles: ["kibana_read_only"]
 
+# Use this setting if you are running kibana without https
+opendistro_security.cookie.secure: false
+
 newsfeed.enabled: false
 telemetry.optIn: false
 telemetry.enabled: false
+security.showInsecureClusterWarning: false
+# To configure a WMS map server for use with Kibana, see:
+# https://opendistro.github.io/for-elasticsearch-docs/docs/kibana/maptiles/
+map.includeElasticMapsService: false
